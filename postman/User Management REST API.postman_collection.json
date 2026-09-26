@@ -1,0 +1,82 @@
+{
+  "info": {
+    "_postman_id": "bc4d0468-5519-4e1d-b1b5-210b6abbd8ea",
+    "name": "User Management REST API",
+    "description": "CRUD and validation requests for the beginner User Management API.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:3000" },
+    { "key": "userId", "value": "1" }
+  ],
+  "item": [
+    {
+      "name": "Health Check",
+      "request": { "method": "GET", "url": "{{baseUrl}}/" }
+    },
+    {
+      "name": "Get All Users",
+      "request": { "method": "GET", "url": "{{baseUrl}}/api/users" }
+    },
+    {
+      "name": "Get User",
+      "request": { "method": "GET", "url": "{{baseUrl}}/api/users/{{userId}}" }
+    },
+    {
+      "name": "Create User",
+      "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["if (pm.response.code === 201) {", "  const body = pm.response.json();", "  pm.collectionVariables.set('userId', body.data.id);", "}"] } }],
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": { "mode": "raw", "raw": "{\n  \"name\": \"Alice Johnson\",\n  \"email\": \"alice@example.com\",\n  \"age\": 24\n}", "options": { "raw": { "language": "json" } } },
+        "url": "{{baseUrl}}/api/users"
+      }
+    },
+    {
+      "name": "Update User",
+      "request": {
+        "method": "PUT",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": { "mode": "raw", "raw": "{\n  \"name\": \"Alice Updated\",\n  \"email\": \"alice.updated@example.com\",\n  \"age\": 26\n}", "options": { "raw": { "language": "json" } } },
+        "url": "{{baseUrl}}/api/users/{{userId}}"
+      }
+    },
+    {
+      "name": "Delete User",
+      "request": { "method": "DELETE", "url": "{{baseUrl}}/api/users/{{userId}}" }
+    },
+    {
+      "name": "Validation examples",
+      "item": [
+        {
+          "name": "Missing name",
+          "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\"email\":\"missing.name@example.com\",\"age\":24}", "options": { "raw": { "language": "json" } } }, "url": "{{baseUrl}}/api/users" }
+        },
+        {
+          "name": "Invalid email",
+          "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\"name\":\"Invalid Email\",\"email\":\"not-an-email\",\"age\":24}", "options": { "raw": { "language": "json" } } }, "url": "{{baseUrl}}/api/users" }
+        },
+        {
+          "name": "Invalid age",
+          "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\"name\":\"Invalid Age\",\"email\":\"invalid.age@example.com\",\"age\":-2}", "options": { "raw": { "language": "json" } } }, "url": "{{baseUrl}}/api/users" }
+        },
+        {
+          "name": "Create Duplicate Email Fixture",
+          "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\"name\":\"Duplicate Fixture\",\"email\":\"duplicate@example.com\",\"age\":30}", "options": { "raw": { "language": "json" } } }, "url": "{{baseUrl}}/api/users" }
+        },
+        {
+          "name": "Duplicate email",
+          "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\"name\":\"Duplicate Attempt\",\"email\":\"duplicate@example.com\",\"age\":31}", "options": { "raw": { "language": "json" } } }, "url": "{{baseUrl}}/api/users" }
+        },
+        {
+          "name": "Non-existent user",
+          "request": { "method": "GET", "url": "{{baseUrl}}/api/users/999999" }
+        },
+        {
+          "name": "Invalid ID",
+          "request": { "method": "GET", "url": "{{baseUrl}}/api/users/not-a-number" }
+        }
+      ]
+    }
+  ]
+}
