@@ -2,6 +2,7 @@ require('dotenv').config();
 const express = require('express');
 const userRoutes = require('./routes/userRoutes');
 const { notFound, errorHandler } = require('./middleware/errorHandler');
+const pool = require('./config/db');
 
 const app = express();
 const port = Number(process.env.PORT) || 3000;
@@ -17,9 +18,15 @@ app.use(notFound);
 app.use(errorHandler);
 
 if (require.main === module) {
-  app.listen(port, () => {
-    console.log(`Server running on http://localhost:${port}`);
-  });
+  pool.getConnection()
+    .then((connection) => {
+      connection.release();
+      app.listen(port, () => console.log(`Server running on http://localhost:${port}`));
+    })
+    .catch((error) => {
+      console.error('Could not connect to MySQL. Check the database service and DB_* environment variables.', error);
+      process.exitCode = 1;
+    });
 }
 
 module.exports = app;

@@ -4,4 +4,5 @@ node_modules/
 src/data/*.sqlite
 src/data/*.sqlite-shm
 src/data/*.sqlite-wal
+*.log
 npm-debug.log*

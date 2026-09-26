@@ -1,155 +1,151 @@
 # User Management REST API
 
-A small, beginner-friendly REST API built with Node.js and Express. It supports creating, listing, reading, updating, and deleting users. SQLite saves data in a local database file, so records remain after the server restarts.
+A JSON REST API for managing users with persistent MySQL storage. The existing Express routes and Postman collection are retained; controllers now use parameterized SQL through a reusable `mysql2` connection pool.
 
 ## Features
 
-- CRUD endpoints for users (`id`, `name`, `email`, `age`)
-- JSON request and response bodies with consistent success/error formats
-- Required-field, email-format, unique-email, and age validation
-- SQLite persistence with a unique email constraint
-- Automated API tests using Node's built-in test runner
-- Central handling for malformed JSON, unknown routes, and server errors
-- Modular routes, controllers, middleware, and data storage
-- Importable Postman collection with success and validation requests
+- Create, list, retrieve, update, and delete users
+- MySQL persistence across server restarts
+- Required field, email format, age, and duplicate email validation
+- Consistent JSON responses and HTTP status codes
+- Central handling for unknown routes and malformed JSON
+- Postman collection at `postman/User Management REST API.postman_collection.json`
 
-## Technologies and requirements
+## Technologies
 
-- Node.js 22.5+ and npm (uses Node's built-in SQLite module)
-- Express 4
-- Postman (optional, for the included API walkthrough)
+Node.js, Express.js, MySQL, `mysql2`, `dotenv`, and Postman.
 
-## Install and run
+## Project structure
+
+```text
+src/config/db.js             MySQL connection pool used by the API
+src/controllers/userController.js  Validation and SQL CRUD operations
+src/routes/userRoutes.js     User endpoint mappings
+src/middleware/errorHandler.js  JSON error responses
+src/server.js                Express setup and startup
+database.sql                 Database and table definition
+.env.example                 Environment variable template
+postman/                     Importable Postman collection
+```
+
+## Database setup
+
+1. Install and start MySQL Server (MySQL 8+ recommended).
+2. From a MySQL client, run `source database.sql` (or open and execute `database.sql` in MySQL Workbench). This creates `user_management_db` and the `users` table.
+3. Copy `.env.example` to `.env` and set the connection values for your MySQL account. `.env` is ignored by Git.
+
+The `users` table has an auto-incrementing integer primary key, required name/email/age fields, a unique email constraint, a positive age constraint, and a creation timestamp.
+
+## Installation and configuration
 
 ```bash
 npm install
-Copy-Item .env.example .env   # PowerShell; optional if using the default port
+```
+
+Required settings in `.env`:
+
+```dotenv
+PORT=3000
+DB_HOST=localhost
+DB_USER=root
+DB_PASSWORD=your_mysql_password
+DB_NAME=user_management_db
+DB_PORT=3306
+```
+
+Never commit `.env` or put database credentials in source code. `.env.example` contains safe placeholders.
+
+## Run the API
+
+```bash
+npm start
+# or, with automatic reload:
 npm run dev
 ```
 
-On macOS/Linux, copy the example with `cp .env.example .env`. Set `PORT` in `.env` to choose another port. `DB_PATH` can point to a different SQLite file; by default it is `src/data/users.sqlite`. The server defaults to port 3000 and prints its local URL on startup. For a regular run without auto-reload, use `npm start`.
+The server checks its MySQL connection before listening at `http://localhost:3000`. Ensure the database script has been run and MySQL is available.
 
-## API endpoints
+## API documentation
 
-All endpoints use `http://localhost:3000` by default. Send JSON with `Content-Type: application/json` for POST and PUT.
+Send `Content-Type: application/json` with POST and PUT requests. Successful user objects include `id`, `name`, `email`, `age`, and `created_at`.
 
-| Method | Path | Description | Success |
+| Method | URL | Purpose | Success / errors |
 | --- | --- | --- | --- |
 | GET | `/` | Health check | 200 |
-| GET | `/api/users` | List users (`count` and `data`) | 200 |
-| GET | `/api/users/:id` | Get one user | 200 |
-| POST | `/api/users` | Create a user | 201 |
-| PUT | `/api/users/:id` | Replace a user's fields | 200 |
-| DELETE | `/api/users/:id` | Delete a user | 200 |
+| POST | `/api/users` | Create user | 201, 400 invalid input, 409 duplicate email |
+| GET | `/api/users` | List all users | 200 with `count` and `data` |
+| GET | `/api/users/:id` | Retrieve one user | 200, 400 invalid ID, 404 missing user |
+| PUT | `/api/users/:id` | Replace name, email, and age | 200, 400 invalid input, 404 missing user, 409 duplicate email |
+| DELETE | `/api/users/:id` | Delete one user | 200, 400 invalid ID, 404 missing user |
 
-### Create user
+### Create user — `POST /api/users`
 
-```http
-POST /api/users
-Content-Type: application/json
-```
+Request:
 
 ```json
-{ "name": "Alice Johnson", "email": "alice@example.com", "age": 24 }
+{ "name": "John Doe", "email": "john@example.com", "age": 25 }
 ```
+
+Response (201):
 
 ```json
 {
   "success": true,
   "message": "User created successfully",
-  "data": { "id": 1, "name": "Alice Johnson", "email": "alice@example.com", "age": 24 }
+  "data": { "id": 1, "name": "John Doe", "email": "john@example.com", "age": 25, "created_at": "2026-09-26T00:00:00.000Z" }
 }
 ```
 
-### List and retrieve users
+### List users — `GET /api/users`
 
-`GET /api/users` returns `{ "success": true, "count": 1, "data": [...] }`. `GET /api/users/1` returns `{ "success": true, "data": { ... } }`.
+Response (200): `{ "success": true, "count": 1, "data": [{ "id": 1, "name": "John Doe", "email": "john@example.com", "age": 25, "created_at": "..." }] }`.
 
-### Update user
+### Retrieve one — `GET /api/users/1`
 
-PUT replaces the complete user record; all three fields are required.
+Response (200): `{ "success": true, "data": { "id": 1, "name": "John Doe", "email": "john@example.com", "age": 25, "created_at": "..." } }`.
+
+### Update — `PUT /api/users/1`
+
+All fields are required; PUT replaces the user's editable fields.
 
 ```json
-{ "name": "Alice Updated", "email": "alice.updated@example.com", "age": 26 }
+{ "name": "John Updated", "email": "johnupdated@example.com", "age": 26 }
 ```
 
-### Delete user
+Response (200): `{ "success": true, "message": "User updated successfully", "data": { "id": 1, "name": "John Updated", "email": "johnupdated@example.com", "age": 26, "created_at": "..." } }`.
 
-`DELETE /api/users/1` returns a success message and the deleted user in `data`.
+### Delete — `DELETE /api/users/1`
 
-## Validation and errors
+Response (200): `{ "success": true, "message": "User deleted successfully", "data": { "id": 1, "name": "John Updated", "email": "johnupdated@example.com", "age": 26, "created_at": "..." } }`.
 
-- Name must be a non-empty string.
-- Email must have a basic valid email format and be unique (case-insensitive).
-- Age must be a positive number no greater than 150.
-- IDs must be positive integers. A malformed ID returns 400; a valid ID with no matching user returns 404.
-- Invalid input and malformed JSON return 400. Duplicate email returns 409. Unknown routes return 404.
-- Unexpected server errors return a generic 500 response so internal details are not sent to clients.
+Errors use `{ "success": false, "message": "..." }`. Unexpected database errors are logged on the server and returned with a generic message.
 
-Errors use `{ "success": false, "message": "..." }`.
+## Postman testing
 
-## Test with Postman
+1. Start MySQL and the API.
+2. Import `postman/User Management REST API.postman_collection.json` into Postman.
+3. Run **Create User**; the collection saves its ID as `userId`.
+4. Run **Get All Users**, **Get User**, **Update User**, and **Delete User**. The collection uses `baseUrl` (`http://localhost:3000`) and `userId` variables.
+5. The **Validation examples** folder includes invalid input, duplicate email, missing user, and invalid ID examples. Run **Create Duplicate Email Fixture** before **Duplicate email**.
 
-1. Start the app with `npm run dev`.
-2. In Postman, choose **Import** and select `postman/User Management REST API.postman_collection.json`.
-3. Run **Health Check**, then **Create User**. The collection saves the created user's ID for the read, update, and delete requests.
-4. Run **Get All Users**, **Get User**, **Update User**, and **Delete User**. These requests use `{{baseUrl}}` and `{{userId}}` collection variables.
-5. The **Validation examples** folder includes missing name, invalid email, invalid age, duplicate email, missing user, and invalid ID requests. Run **Create Duplicate Email Fixture** first; then run **Duplicate email**. The missing-user request uses a high ID that should not exist.
+The collection's example create email may already exist on repeated runs; change it or delete the previous record before creating again.
 
-Postman uses a JSON body for create/update. SQLite records remain after the server restarts.
+## SQL concepts demonstrated
 
-Run automated API checks with `npm test`. They use a temporary database and leave the app's saved records untouched.
+- `CREATE DATABASE` and `CREATE TABLE` define the database and schema.
+- `PRIMARY KEY` and `AUTO_INCREMENT` provide unique generated IDs.
+- `NOT NULL`, `UNIQUE`, and `CHECK` enforce data rules.
+- API operations use `INSERT`, `SELECT`, `UPDATE`, and `DELETE`.
+- `WHERE id = ?` filters records; `?` placeholders keep user data parameterized.
 
-## Project structure
+## GitHub
 
-```text
-src/
-  controllers/userController.js  # CRUD operations and input checks
-  data/database.js               # SQLite connection and user data functions
-  middleware/errorHandler.js     # Unknown route and centralized errors
-  routes/userRoutes.js           # Maps HTTP paths to controller functions
-  server.js                      # Express configuration and startup
-postman/
-  User Management REST API.postman_collection.json
-.env.example
-.gitignore
-package.json
-```
-
-## Request flow
-
-Postman sends an HTTP request to Express. Express parses JSON, matches a route, and calls its controller. The controller validates the input and uses database functions to read or change SQLite. It then sends a JSON response with the appropriate status code. Errors pass to the central error middleware.
-
-## Beginner terms
-
-- **Node.js** runs JavaScript outside a web browser, including on a server.
-- **Express.js** is a Node.js library that makes it easier to build web servers and APIs.
-- A **REST API** exposes resources through URLs and standard HTTP methods.
-- **CRUD** means Create, Read, Update, and Delete.
-- **HTTP methods** describe the action: GET reads, POST creates, PUT replaces/updates, and DELETE removes.
-- **JSON** is a text format for structured data, commonly used between clients and APIs.
-- **Middleware** is a function that runs during a request/response cycle. Here it parses JSON and formats errors.
-- A **route** connects an HTTP method and URL to code that handles the request.
-- A **controller** contains the action logic for a route, such as validating and creating a user.
-- **Postman** lets you send requests to an API and inspect status codes and response bodies without building a separate front end.
-
-In short: **Postman → Express middleware → route → controller → SQLite database → JSON response**.
-
-## Future improvements
-
-Add pagination, authentication, stricter schema validation, and a MySQL or PostgreSQL repository if the project outgrows SQLite.
-
-## Upload to GitHub
-
-Create an empty GitHub repository, then run these commands from the project directory. Replace the placeholder URL with your repository URL.
+After reviewing the changes and configuring your remote:
 
 ```bash
-git init
 git add .
-git commit -m "Build User Management REST API"
-git branch -M main
-git remote add origin <GITHUB_REPOSITORY_URL>
-git push -u origin main
+git commit -m "Integrate MySQL database for user API"
+git push
 ```
 
-`node_modules/` and `.env` are ignored by Git. Commit `.env.example` so collaborators know which configuration value to set.
+For a new remote repository, configure it with `git remote add origin <GITHUB_REPOSITORY_URL>` and push the current branch with `git push -u origin <branch-name>`.
